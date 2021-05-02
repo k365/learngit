@@ -4,10 +4,10 @@ from keras import backend as K
 from keras.callbacks import (EarlyStopping, ModelCheckpoint, ReduceLROnPlateau,
                              TensorBoard)
 from keras.optimizers import Adam
+from keras.utils.data_utils import get_file
 from PIL import Image
 
-from nets.unet import mobilenet_unet
-
+from nets.segnet import convnet_segnet
 
 #-------------------------------------------------------------#
 #   定义了一个生成器，用于读取datasets2文件夹里面的图片与标签
@@ -18,13 +18,16 @@ def generate_arrays_from_file(lines,batch_size):
     while 1:
         X_train = []
         Y_train = []
+       
         for _ in range(batch_size):
             if i==0:
                 np.random.shuffle(lines)
             #-------------------------------------#
             #   读取输入图片并进行归一化和resize
             #-------------------------------------#
+		
             name = lines[i].split(';')[0]
+            
             img = Image.open("./dataset2/jpg/" + name)
             img = img.resize((WIDTH,HEIGHT), Image.BICUBIC)
             img = np.array(img)/255
@@ -57,7 +60,7 @@ if __name__ == "__main__":
     NCLASSES = 2
 
     log_dir = "logs/"
-    model = mobilenet_unet(n_classes=NCLASSES,input_height=HEIGHT, input_width=WIDTH)
+    model = convnet_segnet(n_classes=NCLASSES, input_height=HEIGHT, input_width=WIDTH)
     #---------------------------------------------------------------------#
     #   这一步是获得主干特征提取网络的权重、使用的是迁移学习的思想
     #   如果下载过慢，可以复制连接到迅雷进行下载。
@@ -66,16 +69,16 @@ if __name__ == "__main__":
     #   weights_path = "xxxxx.h5"
     #   model.load_weights(weights_path,by_name=True,skip_mismatch=True)
     #---------------------------------------------------------------------#
-    BASE_WEIGHT_PATH = 'https://github.com/fchollet/deep-learning-models/releases/download/v0.6/'
-    model_name = 'mobilenet_%s_%d_tf_no_top.h5' % ('1_0', 224)
-    weight_path = BASE_WEIGHT_PATH + model_name
-    weights_path = keras.utils.get_file(model_name, weight_path)
-    model.load_weights(weights_path, by_name=True, skip_mismatch=True)
+    WEIGHTS_PATH_NO_TOP = 'https://github.com/fchollet/deep-learning-models/releases/download/v0.1/vgg16_weights_tf_dim_ordering_tf_kernels_notop.h5'
+    weights_path = get_file('vgg16_weights_tf_dim_ordering_tf_kernels_notop.h5', WEIGHTS_PATH_NO_TOP, cache_subdir='models')
+    model.load_weights(weights_path,by_name=True)
 
     # 打开数据集的txt
     with open("./dataset2/train.txt","r") as f:
-        lines = f.readlines()
-        
+        l = f.readlines()
+        if len(l) and l:
+            lines=l
+            print(lines)
     #---------------------------------------------#
     #   打乱的数据更有利于训练
     #   90%用于训练，10%用于估计。
@@ -103,7 +106,7 @@ if __name__ == "__main__":
     #   冻结训练是不训练主干的，解冻训练是训练主干的。
     #   由于训练的特征层变多，解冻后所需显存变大
     #-------------------------------------------------------------------------------#
-    trainable_layer = 60
+    trainable_layer = 15
     for i in range(trainable_layer):
         model.layers[i].trainable = False
     print('freeze the first {} layers of total {} layers.'.format(trainable_layer, len(model.layers)))
@@ -118,11 +121,12 @@ if __name__ == "__main__":
         print('Train on {} samples, val on {} samples, with batch size {}.'.format(num_train, num_val, batch_size))
         model.fit_generator(generate_arrays_from_file(lines[:num_train], batch_size),
                 steps_per_epoch=max(1, num_train//batch_size),
-                validation_data=generate_arrays_from_file(lines[num_train:], batch_size),
+                validation_data=generate_arrays_from_file(lines[:num_train], batch_size),
                 validation_steps=max(1, num_val//batch_size),
                 epochs=50,
                 initial_epoch=0,
                 callbacks=[checkpoint, reduce_lr,early_stopping])
+
 
     for i in range(len(model.layers)):
         model.layers[i].trainable = True
