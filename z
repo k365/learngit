@@ -18,13 +18,16 @@ def generate_arrays_from_file(lines,batch_size):
     while 1:
         X_train = []
         Y_train = []
+       
         for _ in range(batch_size):
             if i==0:
                 np.random.shuffle(lines)
             #-------------------------------------#
             #   读取输入图片并进行归一化和resize
             #-------------------------------------#
+		
             name = lines[i].split(';')[0]
+            
             img = Image.open("./dataset2/jpg/" + name)
             img = img.resize((WIDTH,HEIGHT), Image.BICUBIC)
             img = np.array(img)/255
@@ -72,8 +75,10 @@ if __name__ == "__main__":
 
     # 打开数据集的txt
     with open("./dataset2/train.txt","r") as f:
-        lines = f.readlines()
-
+        l = f.readlines()
+        if len(l) and l:
+            lines=l
+            print(lines)
     #---------------------------------------------#
     #   打乱的数据更有利于训练
     #   90%用于训练，10%用于估计。
@@ -116,7 +121,7 @@ if __name__ == "__main__":
         print('Train on {} samples, val on {} samples, with batch size {}.'.format(num_train, num_val, batch_size))
         model.fit_generator(generate_arrays_from_file(lines[:num_train], batch_size),
                 steps_per_epoch=max(1, num_train//batch_size),
-                validation_data=generate_arrays_from_file(lines[num_train:], batch_size),
+                validation_data=generate_arrays_from_file(lines[:num_train], batch_size),
                 validation_steps=max(1, num_val//batch_size),
                 epochs=50,
                 initial_epoch=0,
