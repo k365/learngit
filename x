@@ -5,7 +5,7 @@ import random
 import numpy as np
 from PIL import Image
 
-from nets.deeplab import Deeplabv3
+from nets.segnet import convnet_segnet
 
 if __name__ == "__main__":
     #---------------------------------------------------#
@@ -27,14 +27,15 @@ if __name__ == "__main__":
     #---------------------------------------------#
     #   载入模型
     #---------------------------------------------#
-    model = Deeplabv3(classes=NCLASSES,input_shape=(HEIGHT,WIDTH,3))
+    model = convnet_segnet(n_classes=NCLASSES,input_height=HEIGHT, input_width=WIDTH)
     #--------------------------------------------------#
     #   载入权重，训练好的权重会保存在logs文件夹里面
     #   我们需要将对应的权重载入
     #   修改model_path，将其对应我们训练好的权重即可
     #   下面只是一个示例
     #--------------------------------------------------#
-    model.load_weights("logs/ep012-loss0.110-val_loss1.457.h5")
+    model_path = "logs/ep520-loss0.120-val_loss0.566.h5"
+    model.load_weights(model_path)
 
     #--------------------------------------------------#
     #   对imgs文件夹进行一个遍历
@@ -45,7 +46,7 @@ if __name__ == "__main__":
         #   打开imgs文件夹里面的每一个图片
         #--------------------------------------------------#
         img = Image.open("./img/"+jpg)
-        
+
         old_img = copy.deepcopy(img)
         orininal_h = np.array(img).shape[0]
         orininal_w = np.array(img).shape[1]
@@ -62,12 +63,12 @@ if __name__ == "__main__":
         #   将图像输入到网络当中进行预测
         #--------------------------------------------------#
         pr = model.predict(img)[0]
-        pr = pr.reshape((int(HEIGHT), int(WIDTH), NCLASSES)).argmax(axis=-1)
+        pr = pr.reshape((int(HEIGHT/2), int(WIDTH/2), NCLASSES)).argmax(axis=-1)
 
         #------------------------------------------------#
         #   创建一副新图，并根据每个像素点的种类赋予颜色
         #------------------------------------------------#
-        seg_img = np.zeros((int(HEIGHT), int(WIDTH),3))
+        seg_img = np.zeros((int(HEIGHT/2), int(WIDTH/2),3))
         for c in range(NCLASSES):
             seg_img[:, :, 0] += ((pr[:,: ] == c) * class_colors[c][0]).astype('uint8')
             seg_img[:, :, 1] += ((pr[:,: ] == c) * class_colors[c][1]).astype('uint8')
